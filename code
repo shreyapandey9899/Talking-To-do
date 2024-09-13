@@ -1,0 +1,109 @@
+import speech_recognition as sr
+
+def get_speech_input(prompt):
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print(prompt)
+        audio = recognizer.listen(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            print(f"You said: {text}")
+            return text
+        except sr.UnknownValueError:
+            print("Sorry, I did not understand that.")
+        except sr.RequestError as e:
+            print(f"Could not request results; {e}")
+        return None
+
+task_title = get_speech_input("What is the title of the task?")
+task_deadline = get_speech_input("What is the deadline of the task?")
+task_date = get_speech_input("What is the date of the task?")
+
+
+
+
+
+import sqlite3
+
+# Connect to SQLite database
+conn = sqlite3.connect('tasks.db')
+c = conn.cursor()
+
+# Create table
+c.execute('''CREATE TABLE IF NOT EXISTS tasks
+             (title TEXT, deadline TEXT, date TEXT)''')
+
+# Insert a row of data
+c.execute("INSERT INTO tasks (title, deadline, date) VALUES (?, ?, ?)",
+          (task_title, task_deadline, task_date))
+
+# Save (commit) the changes
+conn.commit()
+
+# Close the connection
+conn.close()
+
+
+
+import sqlite3
+from datetime import datetime
+
+# Connect to SQLite database
+conn = sqlite3.connect('tasks.db')
+c = conn.cursor()
+
+# Retrieve tasks
+c.execute("SELECT title, deadline, date FROM tasks")
+tasks = c.fetchall()
+
+# Function to parse date with multiple formats
+def parse_date(date_str):
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y', '%H:%M'):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            pass
+    raise ValueError(f"Date format for {date_str} is not supported")
+
+# Sort tasks by deadline
+tasks.sort(key=lambda x: parse_date(x[1]))
+
+# Print sorted tasks
+for task in tasks:
+    print(f"Task: {task[0]}, Deadline: {task[1]}, Date: {task[2]}")
+
+# Close the connection
+conn.close()
+
+
+
+import schedule
+import time
+import threading
+
+def remind_task(task):
+    print(f"Reminder: You have a task '{task[0]}' due on {task[1]}'.")
+
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+# Example tasks
+tasks = [
+    ("Task 1", "2024-08-23"),
+    ("Task 2", "2024-08-24")
+]
+
+# Schedule reminders for tasks
+for task in tasks:
+    schedule.every().day.at("21:38").do(remind_task, task)
+
+# Run the scheduler in a separate thread
+scheduler_thread = threading.Thread(target=run_scheduler)
+scheduler_thread.daemon = True
+scheduler_thread.start()
+
+# Main program continues
+print("Scheduler is running in the background. Main program continues...")
+# You can add other code here that you want to run concurrently
